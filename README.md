@@ -48,7 +48,7 @@ The RAG-powered chatbot combines retrieval and generative AI to help users acces
 
 ### Prerequisites
 - **Python 3.x**
-- **OpenAI API Key** for GPT-4 integration
+- **Azure OpenAI API Key** for GPT-4 integration
 
 ### Installation
 
@@ -69,10 +69,12 @@ The RAG-powered chatbot combines retrieval and generative AI to help users acces
     pip install -r requirements.txt
     ```
 
-4. **Configure API keys**:
-   - Add your OpenAI API key to `config.env`:
+4. **Configure Azure OpenAI Credentials**:
+   - Open the `config.env` file and add the following Azure OpenAI credentials:
      ```bash
-     OPENAI_API_KEY="your-api-key"
+     AZURE_OPENAI_ENDPOINT="your-azure-openai-endpoint"
+     AZURE_OPENAI_API_KEY="your-azure-openai-api-key"
+     API_VERSION="2024-02-15-preview"
      ```
 
 5. **Run the application**:
