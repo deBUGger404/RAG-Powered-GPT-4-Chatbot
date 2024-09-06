@@ -83,7 +83,7 @@ The RAG-powered chatbot combines retrieval and generative AI to help users acces
     ```
 
 6. **Access the application**:
-   - Open your browser and go to `http://localhost:5000`.
+   - Open your browser and go to `http://localhost:8000`.
 
 ### Using the Application
 
