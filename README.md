@@ -126,6 +126,12 @@ Contributions are welcome! Please open an issue or submit a pull request if you'
 
 License 
 ------- 
-This project is licensed under the MIT License.
+This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
 
-*** Happy coding! 🤖 Let's bring AI closer to the knowledge that matters most to you.
+---
+
+<div style="text-align: center;">
+  <a href="https://github.com/deBUGger404" target="_blank">
+    <img src="https://raw.githubusercontent.com/deBUGger404/Python-Course-From-Beginner-to-Expert/main/Data/happy_code.webp" alt="Happy Code" style="width:200px; border-radius:12px;">
+  </a>
+</div>
