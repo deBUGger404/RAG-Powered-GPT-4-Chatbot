@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG ChatBot</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+
+<div class="container">
+    <!-- File Management Section (flexible width) -->
+    <div class="file-management">
+        <h3 style="text-align: center;">File Management</h3>
+        <!-- Step 1: Select Database Section -->
+        <div class="section">
+            <h6>Select Database</h6>
+            <div class="form-group">
+                <!-- <label for="databaseSelect">Select Database:</label> -->
+                <select class="form-control" id="databaseSelect">
+                    <option selected disabled>Select Database</option> <!-- Keep "Select Database" as default -->
+                    <!-- Options will be dynamically loaded here -->
+                </select>
+            </div>
+        
+            <h6>Files in Selected Database</h6>
+            <div class="form-group">
+                <!-- <label for="filesList">Files:</label> -->
+                <ul class="simple-file-list" id="filesList"></ul>
+            </div>
+            <!-- Set Database Button -->
+            <button class="btn-maroon mt-3" id="setDatabaseBtn" disabled>Set Database</button>  <!-- Button initially disabled -->
+        </div>
+
+        <!-- Step 2: Upload New Files Section -->
+        <div class="section">
+            <h6>Upload Files and Set Up a RAG Database</h6>
+            <br/>
+            <!-- Input for Database Name -->
+            <div class="form-group">
+                <!-- <label for="databaseNameInput">Database Name:</label> -->
+                <input type="text" class="form-control" id="databaseNameInput" placeholder="Enter Database Name">
+            </div>
+        
+            <!-- Custom File Upload -->
+            <div class="custom-file-upload">
+                <label for="uploadFiles" class="upload-label">
+                    <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                    <span id="file-upload-text">Choose Files</span>
+                    <input type="file" id="uploadFiles" class="upload-input" multiple>
+                </label>
+                <div class="file-chosen-container">
+                    <span id="file-chosen"></span> <!-- Placeholder to show the chosen files with scrollable area -->
+                </div>
+            </div>
+        
+            <!-- Upload Button -->
+            <button class="btn-maroon mt-3" id="uploadBtn">Create Database</button>
+        </div>
+    </div>
+
+    <!-- Chat Section (flexible width) -->
+    <div class="chat-section">
+        <div class="chatbox-container">
+            <div class="chat-header">RAG ChatBot</div>
+            <div class="chat-body" id="chat">
+                <div class="chat-placeholder">Please set the database first to enable the chat window.</div>
+            </div>
+            <div id="chat-loader" class="loader" style="display: none;"></div> <!-- Loader will appear here -->
+            <div class="chat-footer">
+                <input type="text" id="message" placeholder="Type a message..." disabled>  <!-- Initially disabled -->
+                <button id="sendBtn" disabled><i class="fas fa-paper-plane"></i></button>  <!-- Initially disabled -->
+                <button id="resetBtn" title="Reset Chat"><i class="fas fa-redo"></i></button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Popup Modal for Database Set Confirmation --
+<div class="modal fade" id="databaseSetModal" tabindex="-1" role="dialog" aria-labelledby="databaseSetModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="databaseSetModalLabel">Database Set</h5>
+            </div>
+            <div class="modal-body">
+                Your database has been set. You can now start chatting with the data.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div> -->
+
+<!-- -- Bootstrap Modal for Progress Steps 
+<div class="modal fade" id="progressModal" tabindex="-1" role="dialog" aria-labelledby="progressModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="progressModalLabel">File Upload Progress</h5>
+      </div>
+      <div class="modal-body">
+        <div class="step-progress">
+          <div id="step1">Processing...</div>
+          <div id="step2" class="mt-3">Chunking...</div>
+          <div id="step3" class="mt-3">Database Created.</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div> -->
+
+<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script id="MathJax-script" async
+      src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+</script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js"></script>
+<script>
+    document.getElementById('uploadFiles').addEventListener('change', function() {
+        const fileInput = document.getElementById('uploadFiles');
+        const fileChosen = document.getElementById('file-chosen');
+        const fileNames = Array.from(fileInput.files).map(file => file.name).join('\n'); // Add line breaks between file names
+    
+        if (fileNames) {
+            fileChosen.textContent = `Files Selected:\n${fileNames}`;
+        } else {
+            fileChosen.textContent = '';
+        }
+    });
+</script>
+<script>
+    $(document).ready(function() {
+        let selectedDatabase = null;
+
+        // Step 1: Fetch databases via API and populate the select dropdown
+        $.ajax({
+            url: '/api/get-databases',
+            method: 'GET',
+            success: function(data) {
+                let databaseSelect = $('#databaseSelect');
+                databaseSelect.empty();  // Clear any previous options
+                databaseSelect.append('<option selected disabled>Select Database</option>');  // Default placeholder option
+                if (data.databases.length > 0) {
+                    // Sort the databases by name (you can also change this to sort by other criteria)
+                    data.databases.sort(function(a, b) {
+                        return a.name.localeCompare(b.name);
+                    });
+                    data.databases.forEach(function(database) {
+                        databaseSelect.append(new Option(database.name, database.id));
+                    });
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Error fetching databases:', error);
+            }
+        });
+
+        // Event listener for when a database is selected
+        $('#databaseSelect').on('change', function() {
+            selectedDatabase = $(this).val();
+            if (selectedDatabase) {
+                // Send the selected database name to the API to fetch files
+                $.ajax({
+                    url: '/api/get-files',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ database_name: selectedDatabase }),  // Send the database name
+                    success: function(data) {
+                        let filesList = $('#filesList');
+                        filesList.empty();  // Clear any previous files
+                        data.files.forEach(function(file) {
+                            filesList.append(`<li>${file}</li>`);  // List each file
+                        });
+                        // Enable the "Set Database" button after files are fetched
+                        $('#setDatabaseBtn').prop('disabled', false);
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Error fetching files:', error);
+                    }
+                });
+            }
+        });
+
+        // Step 3: Set Database Button Click
+        $('#setDatabaseBtn').on('click', function() {
+            if (selectedDatabase) {
+
+                // Disable all the elements
+                $('#setDatabaseBtn').prop('disabled', true).html('Set Database <div class="spinner"></div>'); // Add spinner
+                
+                // Send the selected database to the API to store it in the session
+                $.ajax({
+                    url: '/api/set-database',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ database_name: selectedDatabase }),  // Send the database name
+                    success: function(response) {
+                        // Show confirmation modal
+                        $('#setDatabaseBtn').prop('disabled', false).html('Set Database');
+                        // $('#databaseSetModal').modal('show');
+                        // Show a success message and set the database
+                        alert("Your database has been set. You can now start chatting with the data.");
+                        // Enable the chat input and send button
+                        $('#message').prop('disabled', false);
+                        $('#sendBtn').prop('disabled', false);
+                        // Remove placeholder
+                        $('.chat-placeholder').remove();
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Error setting database:', error);
+                    }
+                });
+            }
+        });
+
+        // Step 4: Handle file upload
+        // Event listener for uploading files and creating database
+        $('#uploadBtn').on('click', function() {
+            let files = $('#uploadFiles')[0].files;
+            let databaseName = $('#databaseNameInput').val().trim();
+    
+            if (files.length === 0 || databaseName === "") {
+                alert("Please provide a database name and select files.");
+                return;
+            }
+    
+            // Disable all the elements
+            $('#uploadBtn').prop('disabled', true).html('Creating Database <div class="spinner"></div>'); // Add spinner
+            $('#setDatabaseBtn').prop('disabled', true); // Disable set database button
+            $('#message').prop('disabled', true); // Disable chat input
+            $('#sendBtn').prop('disabled', true); // Disable send button
+    
+            let formData = new FormData();
+            formData.append('database_name', databaseName);  // Add database name to form data
+            for (let i = 0; i < files.length; i++) {
+                formData.append('files[]', files[i]);  // Add all files to form data
+            }
+    
+            // Upload files to create the database
+            $.ajax({
+                url: '/api/upload-files',  // API endpoint to handle file upload and database creation
+                method: 'POST',
+                data: formData,
+                contentType: false,
+                processData: false,
+                success: function(response) {
+                    // Enable all the elements after the response
+                    $('#uploadBtn').prop('disabled', false).html('Create Database'); // Remove spinner and reset button text
+                    $('#setDatabaseBtn').prop('disabled', false); // Enable set database button
+                    $('#message').prop('disabled', false); // Enable chat input
+                    $('#sendBtn').prop('disabled', false); // Enable send button
+    
+                    // Show a success message and set the database
+                    alert("Database Created Successfully! Now setting the database.");
+    
+                    // Automatically select the new database and enable chat
+                    $('#databaseSelect').append(new Option(response.database_name, response.database_name));
+                    $('#databaseSelect').val(response.database_name).trigger('change');
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error uploading files:', error);
+    
+                    // Enable the elements back in case of failure
+                    $('#uploadBtn').prop('disabled', false).html('Create Database'); // Remove spinner and reset button text
+                    $('#setDatabaseBtn').prop('disabled', false); // Enable set database button
+                    $('#message').prop('disabled', false); // Enable chat input
+                    $('#sendBtn').prop('disabled', false); // Enable send button
+                }
+            });
+        });
+
+        $('#sendBtn').on('click', function() {
+            sendMessage();
+        });
+    
+        $('#resetBtn').on('click', function() {
+            resetChat();
+        });
+    
+        $('#message').on('keypress', function(e) {
+            if (e.which === 13) { // Enter key
+                sendMessage();
+            }
+        });
+    
+        function sendMessage() {
+            let message = $('#message').val().trim();
+            if (message === "") return;
+    
+            // Display the user's message immediately
+            appendMessage('user', message);
+            $('#message').val('');  // Clear the input field
+    
+            // Show the loading animation in the bot's message area
+            let loaderId = `loader-${Date.now()}`; // Unique ID for the loader
+            appendLoader(loaderId);
+    
+            // Send the message to the backend
+            $.ajax({
+                url: '/chat',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ message: message }),
+                success: function(data) {
+                    // Replace the loader with the bot's message
+                    removeLoader(loaderId);
+    
+                    // Display the assistant's message with pricing and time taken
+                    let assistantMessage = data.response;
+                    let footer = `<div style="font-size: 12px; font-style: italic; color: #888; text-align: left; margin-top: 10px;">
+                                    Cost: $${data.pricing.toFixed(2)} | Time taken: ${data.time_taken.toFixed(2)} seconds
+                                  </div>`;
+                    appendMessage('bot', assistantMessage + footer);
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error occurred:', status, error);
+                    removeLoader(loaderId); // Remove the loader in case of an error
+                    appendMessage('bot', 'Sorry, there was an error processing your request.');
+                }
+            });
+        }
+    
+        function appendMessage(sender, message) {
+            let chat = $('#chat');
+            let className = sender === 'user' ? 'user' : 'bot';
+            let htmlMessage = marked.parse(message);  // Use marked.parse() to format Markdown
+            chat.append(
+                `<div class="message ${className}">
+                    <div class="message-content">${htmlMessage}</div>
+                </div>`
+            );
+    
+            chat.scrollTop(chat.prop("scrollHeight"));  // Scroll to the bottom after adding a new message
+        }
+    
+        function appendLoader(loaderId) {
+            let chat = $('#chat');
+            chat.append(
+                `<div class="message bot" id="${loaderId}">
+                    <div class="loader"></div> <!-- Add the CSS loader here -->
+                </div>`
+            );
+            chat.scrollTop(chat.prop("scrollHeight"));  // Scroll to the bottom after adding the loader
+        }
+    
+        function removeLoader(loaderId) {
+            $(`#${loaderId}`).remove();  // Remove the loader with the unique ID
+        }
+
+        
+        // Function to display chat history (if you want to load a previous conversation)
+        function displayChatHistory(history) {
+            let chat = $('#chat');
+            chat.empty();  // Clear the chat body
+
+            // Append each message from the history to the chat body
+            history.forEach(function(msg) {
+                appendMessage(msg.role, msg.content);
+            });
+
+            chat.scrollTop(chat.prop("scrollHeight"));  // Scroll to the bottom
+        }
+        
+        // Function to reset the chat
+        function resetChat() {
+            $.ajax({
+                url: '/chat/reset',  // Endpoint to reset the chat session
+                method: 'POST',
+                success: function(data) {
+                    displayChatHistory([]);  // Clear the UI when chat is reset
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error occurred:', status, error);
+                }
+            });
+        }
+    });
+</script>
+
+
+</body>
+</html>
