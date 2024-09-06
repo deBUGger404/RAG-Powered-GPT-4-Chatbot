@@ -118,6 +118,8 @@ The RAG-powered chatbot combines retrieval and generative AI to help users acces
 ├── upload_file/         # Directory for storing uploaded files
 ├── utils.py             # Utility functions
 
+```
+
 Contributing 
 ------------ 
 Contributions are welcome! Please open an issue or submit a pull request if you'd like to add new features or fix bugs. 
